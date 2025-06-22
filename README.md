@@ -1,53 +1,104 @@
-Problem Statement
-Contemporary platforms like LinkedIn fail at goal-conditioned discovery and credential integrity. Their architectures rely on user-declared profile metadata and classical graph traversal (BFS/DFS/PageRank), which are inadequate for large-scale, noisy, high-dimensional social graphs. These systems are inherently trust-centralized, lack cryptographic validation, and are vulnerable to Sybil attacks and credential spoofing.
-Two Core Problems
-(1) Inefficient Search: Users cannot query the network with semantic and structural constraints (e.g., "Find a robotics+climate tech investor with YC background reachable in 2 trust hops"). Traditional graph algorithms are computationally expensive and structurally blind to goal-conditioning.
-(2) Unverifiable Identity and Claims: Credentials like affiliations or recommendations are self-issued. There’s no cryptographic binding between a claim and its signer, nor any way to prove possession/control over a claimed identity (e.g., email, ENS, org membership). Trust is monolithic and centralized.
-Vera: Verified, Goal-Aware Search Layer
-Vera introduces a multi-layer architecture to solve for semantic matching, trust-aware path routing, and cryptographic credential proof.
-(1) Semantic Goal Embedding (LLM Vectorization)
-User intents are transformed into fixed-length dense vectors using a fine-tuned Sentence-BERT or Instructor-XL encoder. The system captures multi-modal input (natural language goals + optional structured constraints), producing v_goal ∈ ℝ^d, where d ≈ 768–1024. Embeddings encode:
-Intent vector → task-specific semantics
+Vera: Verified, Goal-Aware Search for Professional Networks
+The Problem with Current Professional Platforms
+Contemporary professional networking platforms like LinkedIn struggle with two fundamental issues: inefficient discovery and unverifiable credentials. Their reliance on user-declared data and traditional graph algorithms (like BFS/DFS) falls short in today's large, complex, and often noisy social graphs. These systems are also trust-centralized, lack cryptographic validation, and are highly susceptible to fake profiles (Sybil attacks) and false claims.
 
+Two Core Challenges:
+Inefficient Search: Users can't perform sophisticated queries combining semantic meaning and network structure (e.g., "Find a robotics+climate tech investor with YC background reachable in 2 trust hops"). Existing graph algorithms are too slow and can't handle such nuanced, goal-conditioned searches.
+Unverifiable Identity and Claims: Information like job affiliations or recommendations are self-declared. There's no cryptographic link between a claim and the person who made it, nor any way to prove ownership of a claimed identity (like an email address or organization membership). Trust is centralized and easily manipulated.
+Vera: A Verified, Goal-Aware Search Layer
+Vera introduces a multi-layer architecture designed to address these problems by enabling semantic matching, trust-aware path routing, and cryptographic credential proof.
 
-Constraint vector → token-weighted conditioning on features like geography, domain, affiliation
+1. Semantic Goal Embedding (LLM Vectorization)
+Vera transforms user intents into precise, fixed-length numerical representations (vectors) using advanced language models like fine-tuned Sentence-BERT or Instructor-XL. This system captures diverse inputs, including natural language goals and structured constraints.
 
+Intent Vector: Captures the core meaning and task-specific semantics of the user's goal.
+Constraint Vector: Encodes specific conditions like geography, industry, or affiliation with weighted tokens.
+Latent Traits: Infers subtle signals such as team fit or seniority from existing data.
+These embeddings are stored in a high-performance Approximate Nearest Neighbor (ANN) engine (e.g., FAISS, Weaviate, Qdrant) for rapid similarity searches.
 
-Latent traits → inferred soft signals (e.g., team fit, seniority archetype) from priors
+2. Profile Similarity and Semantic Filtering
+Each user profile is also transformed into an embedding using the same process. Vera calculates the cosine similarity between the user's goal vector and each profile vector to determine relevance.
 
+sim(v 
+goal
+​
+ ,v 
+profile
+​
+ )= 
+∥v 
+goal
+​
+ ∥×∥v 
+profile
+​
+ ∥
+v 
+goal
+​
+ ⋅v 
+profile
+​
+ 
+​
+ 
 
-These embeddings are stored in a high-performance ANN engine (e.g., FAISS, Weaviate, Qdrant) for fast cosine similarity search.
-(2) Profile Similarity and Semantic Filtering
-Each user profile is embedded via the same transformer pipeline: v_profile ∈ ℝ^d. The similarity function is defined as:
-sim(v_goal, v_profile) = (v_goal · v_profile) / (‖v_goal‖ × ‖v_profile‖)
-Results are pre-filtered via indexed metadata (e.g., location == "Toronto", industry ∈ {“AI”, “Climate”}), and then ranked by similarity. This produces a high-recall, semantically relevant candidate set C ⊆ V.
-3) Quantum-Accelerated Trust Path Search
-We formalize the search as:
-Given G = (V, E), a semantic goal vector v_goal, and trust threshold θ, find v ∈ V s.t. sim(v_goal, embedding(v)) ≥ θ ∧ trust_path(u → v) ∈ T, where T is the set of valid paths with minimum trust decay.
-Quantum Embedding
-Each user node v ∈ V is mapped into a quantum superposition register using amplitude encoding:
-|ψ⟩ = ∑_{i=1}^{N} α_i |v_i⟩,  where α_i encodes profile metadata amplitude
-The user-defined goal function f(v) is embedded into a quantum oracle O_f such that:
-O_f: |v⟩ → (-1)^f(v) |v⟩, where  
-f(v) = 1 ⇔ (cos_sim(v, v_goal) ≥ θ) ∧ trust_path(u → v) exists
-The oracle is constructed as a composite gate network:
-U_sim estimates cosine similarity using quantum inner product approximation
+Results are initially filtered using indexed metadata (e.g., location, industry) and then ranked by their semantic similarity, generating a highly relevant candidate set.
 
+3. Quantum-Accelerated Trust Path Search
+Vera formalizes search as finding a user v where their profile semantically aligns with the goal and a trusted path exists from the querying user u to v.
 
-U_trust verifies existence of a trusted path (e.g., using quantum walk encoding or QRAM-assisted bitstrings representing E)
+Quantum Embedding:
+Each user node is mapped into a quantum superposition, where the amplitude encodes their profile metadata.
 
+∣ψ⟩= 
+i=1
+∑
+N
+​
+ α 
+i
+​
+ ∣v 
+i
+​
+ ⟩
 
-U_f = U_trust ∘ U_sim — single-qubit-controlled phase-flip for all satisfying v
+A quantum oracle O_f is constructed to identify satisfying users. This oracle flips the phase of user states that meet both the semantic similarity threshold and have an existing trusted path.
 
+O 
+f
+​
+ :∣v⟩→(−1) 
+f(v)
+ ∣v⟩
 
-Using Grover’s Diffusion Operator and iterative amplification, the solution converges in O(√(N/k)) time, where k is the number of valid goal-aligned, trust-connected matches.
-Credential Verification via Web3 (Decentralized Identity Stack)
-To ensure authenticity of profile claims, Vera uses the W3C Verifiable Credentials (VC) model layered on Web3 identity primitives:
-DIDs (Decentralized Identifiers): Each user and issuer has a DID (did:ens:alice.eth, did:web:yc.com) anchored on-chain (ENS, Ceramic, or SIOP)
+where f(v)=1 if and only if (cosine similarity of v with v_textgoal
+ge
+theta) AND (a trusted path from u to v exists).
 
+The oracle combines:
 
-VCs: Claims (e.g., “Worked at OpenAI”, “YC S23 founder”) are signed JSON-LD tokens:
+U_textsim: Estimates cosine similarity using quantum inner product approximation.
+U_texttrust: Verifies trusted path existence (e.g., via quantum walk encoding or QRAM-assisted bitstrings).
+U_f=U_texttrust
+circU_textsim: A composite gate network for phase-flipping satisfying nodes.
+By leveraging Grover's Diffusion Operator and iterative amplification, Vera achieves a significant speedup, converging in O(
+sqrtN/k) time, where N is the total number of users and k is the number of valid matches.
 
+4. Credential Verification via Web3 (Decentralized Identity Stack)
+To ensure the authenticity of profile claims, Vera integrates with the W3C Verifiable Credentials (VC) model, built on Web3 identity primitives:
+
+DIDs (Decentralized Identifiers): Every user and organization has a unique, self-sovereign identifier (e.g., did:ens:alice.eth, did:web:yc.com) anchored on a blockchain (ENS, Ceramic, SIOP).
+
+VCs (Verifiable Credentials): Claims (e.g., "Worked at OpenAI," "YC S23 founder") are cryptographically signed JSON-LD tokens. These tokens include:
+
+credentialSubject: Details about the claim and the identity it pertains to.
+issuer: The DID of the entity issuing the claim.
+proof: Cryptographic signature details, ensuring authenticity and integrity.
+<!-- end list -->
+
+JSON
 
 {
   "credentialSubject": {
@@ -64,7 +115,6 @@ VCs: Claims (e.g., “Worked at OpenAI”, “YC S23 founder”) are signed JSON
     "jws": "eyJhbGciOiJFUzI1NiJ9..."
   }
 }
-Proof Verification: Issuer public keys are resolved via DID Documents. Vera uses a local or federated registry to fetch proofs and perform on-chain or zk-SNARK based verification of VC authenticity, non-revocation, and subject-key binding.
+Proof Verification: Vera resolves issuer public keys via DID Documents. It then uses a local or federated registry to fetch proofs and perform on-chain or Zero-Knowledge Succinct Non-Interactive Argument of Knowledge (zk-SNARK) based verification to confirm the VC's authenticity, ensure it hasn't been revoked, and confirm the subject's control over the claimed identity.
 
-
-Sybil Resistance: Root trust is anchored via org-issued attestations, decentralized reputation graphs, and optionally ZK-attested liveness proofs (e.g., Gitcoin Passport, Worldcoin’s Semaphore, etc.).
+Sybil Resistance: Vera strengthens root trust through organization-issued attestations, decentralized reputation graphs, and optional ZK-attested liveness proofs (e.g., Gitcoin Passport, Worldcoin's Semaphore).
